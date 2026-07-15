@@ -6,9 +6,9 @@ project:
   output_dir: ./runs/base       # dove salvare checkpoint / log / risultati
 
 paths:
-  data_root: /content/drive/MyDrive/MSLesSeg            # root MSLesSeg (con train/ test/)
-  processed_root: /content/drive/MyDrive/MSLesSeg_proc  # volumi normalizzati (.npy)
-  metadata_csv: null            # CSV con sesso/età/field_strength per paziente (Fase 1)
+  data_root: "C:/Users/massi/Desktop/MSLesSeg Dataset"
+  processed_root: "C:/Users/massi/Desktop/MSLesSeg_Processed"
+  metadata_csv: "C:/Users/massi/Desktop/MSLesSeg Dataset/info_dataset/clinical_data.csv"            # CSV con sesso/età/field_strength per paziente (Fase 1)
 
 data:
   modalities: [FLAIR, T1, T2]   # il sottoinsieme guida l'ablation multimodale (es. [FLAIR])
