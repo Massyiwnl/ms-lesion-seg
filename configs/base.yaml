@@ -1,0 +1,89 @@
+# Configurazione di default. Ogni esperimento è un file che sovrascrive questa.
+project:
+  name: ms-lesion-seg
+  seed: 42
+  deterministic: false
+  output_dir: ./runs/base       # dove salvare checkpoint / log / risultati
+
+paths:
+  data_root: /content/drive/MyDrive/MSLesSeg            # root MSLesSeg (con train/ test/)
+  processed_root: /content/drive/MyDrive/MSLesSeg_proc  # volumi normalizzati (.npy)
+  metadata_csv: null            # CSV con sesso/età/field_strength per paziente (Fase 1)
+
+data:
+  modalities: [FLAIR, T1, T2]   # il sottoinsieme guida l'ablation multimodale (es. [FLAIR])
+  context_slices: 1             # 2.5D: +/- N slice adiacenti per modalità (0 = 2D puro)
+  plane: axial
+  spatial_size: [192, 192]      # dimensione in-plane dopo crop/pad
+  pos_neg_ratio: 0.5            # frazione target di slice con lesione per epoca (train)
+  min_brain_fraction: 0.02      # scarta slice quasi vuote
+  # Parsing filename: {paziente}_{timepoint}_{modalità}.nii.gz  (VERIFICARE con 00_inspect)
+  filename_pattern: '(?P<patient>[^_/]+)_(?P<timepoint>[^_/]+)_(?P<modality>[^_/.]+)'
+  modality_aliases:
+    FLAIR: [FLAIR, flair]
+    T1: [T1, t1]
+    T2: [T2, t2]
+    mask: [MASK, mask, seg, gt, lesion, consensus]
+
+domain:                         # esperimento robustezza cross-scanner (Fase 6)
+  split_by: null                # es. 'field_strength'; null = split standard per paziente
+  train_domain: null            # es. '3T'
+  test_domain: null             # es. '1.5T'
+
+model:
+  arch: unet                    # unet | attention_unet | dynunet | swin_unetr (stretch)
+  in_channels: auto             # auto = len(modalities) * (2*context_slices + 1)
+  out_channels: 1               # segmentazione binaria (lesione)
+  features: [32, 64, 128, 256, 512]
+  deep_supervision: false
+  dropout: 0.0
+
+loss:
+  name: dice                    # dice | dice_focal | tversky
+  sigmoid: true
+  tversky_alpha: 0.3            # peso FP; alpha<beta penalizza di più i falsi negativi
+  tversky_beta: 0.7
+  deep_supervision_weights: [1.0, 0.5, 0.25, 0.125]
+
+regularization:
+  jacobian: false
+  jacobian_lambda: 0.01
+  jacobian_n_proj: 1
+
+train:
+  epochs: 100
+  batch_size: 16
+  optimizer: adamw
+  lr: 0.001
+  weight_decay: 0.00001
+  scheduler: cosine             # cosine | plateau | none
+  amp: true                     # mixed precision (T4)
+  num_workers: 2
+  val_interval: 1
+  early_stopping_patience: 20
+  grad_clip: null
+
+augment:
+  enabled: true
+  rand_flip_prob: 0.5
+  rand_rotate_prob: 0.5
+  rand_rotate_range_deg: 10
+  rand_zoom_prob: 0.3
+  rand_zoom_min: 0.9
+  rand_zoom_max: 1.1
+  rand_intensity_prob: 0.3
+  bias_field_prob: 0.0          # >0 abilita la bias-field augmentation (robustezza dominio)
+  rand_gaussian_noise_prob: 0.0
+
+eval:
+  threshold: 0.5
+  hd95: true
+  assd: true
+  lesion_wise: true
+  min_lesion_size: 3            # voxel; ignora componenti minuscole (rumore)
+  subgroups: [sex, age_band, field_strength]
+  save_predictions: true
+
+explain:
+  gradcam_layer: null           # es. 'bottleneck'
+  n_examples: 8

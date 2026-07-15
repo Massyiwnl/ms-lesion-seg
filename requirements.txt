@@ -1,0 +1,19 @@
+# Core (su Colab torch è già preinstallato: il notebook installa il resto)
+torch>=2.0
+torchvision
+monai>=1.3
+nibabel>=5.0
+SimpleITK>=2.3
+numpy>=1.24
+scipy>=1.10
+scikit-image>=0.21
+matplotlib>=3.7
+pandas>=2.0
+omegaconf>=2.3
+pyyaml>=6.0
+tqdm>=4.65
+
+# Opzionali (stretch)
+# pyradiomics>=3.1      # analisi radiomica
+# segment-anything      # MedSAM zero-shot
+# tensorboard

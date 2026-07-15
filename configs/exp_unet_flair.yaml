@@ -1,0 +1,5 @@
+# Baseline: U-Net, solo FLAIR, loss Dice
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: false }
+loss: { name: dice }
+project: { output_dir: ./runs/unet_flair }

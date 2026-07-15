@@ -1,0 +1,5 @@
+# Ablation modalità: U-Net, FLAIR+T1+T2, loss Dice
+data: { modalities: [FLAIR, T1, T2] }
+model: { arch: unet, deep_supervision: false }
+loss: { name: dice }
+project: { output_dir: ./runs/unet_multimodal }

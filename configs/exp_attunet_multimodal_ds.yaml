@@ -1,0 +1,5 @@
+# Attention U-Net + deep supervision, multimodale, loss Dice+Focal
+data: { modalities: [FLAIR, T1, T2] }
+model: { arch: attention_unet, deep_supervision: true }
+loss: { name: dice_focal }
+project: { output_dir: ./runs/attunet_mm_ds }

@@ -1,0 +1,8 @@
+# Robustezza cross-scanner: train 3T / test 1.5T, con Jacobian + bias-field aug
+data: { modalities: [FLAIR, T1, T2] }
+model: { arch: attention_unet, deep_supervision: true }
+loss: { name: dice_focal }
+domain: { split_by: field_strength, train_domain: '3T', test_domain: '1.5T' }
+regularization: { jacobian: true, jacobian_lambda: 0.01 }
+augment: { bias_field_prob: 0.3 }
+project: { output_dir: ./runs/domain_3T_to_15T }
