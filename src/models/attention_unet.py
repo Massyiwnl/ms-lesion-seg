@@ -1,16 +1,16 @@
-"""Attention U-Net 2D + deep supervision.  [Implementazione: Fase 3]
+"""Attention U-Net 2D + deep supervision.
 
-- Attention Gate sugli skip (Oktay et al. 2018): il decoder "pesa" le feature
-  dell'encoder prima della concatenazione.
-- Deep supervision: teste di segmentazione ausiliarie a più livelli del decoder;
-  in training la loss somma i contributi (pesi in loss.deep_supervision_weights),
-  in inference si usa solo l'uscita a piena risoluzione.
+Wrapper esplicito su `UNet2D(attention=True)`: condivide l'implementazione (stessi
+blocchi, stessa inizializzazione) così il confronto con la baseline isola davvero
+l'effetto degli Attention Gate. La classe `AttentionGate` è definita in `unet.py`.
 """
 from __future__ import annotations
+from src.models.unet import UNet2D, AttentionGate  # noqa: F401  (riesportata)
 
 
 def AttentionUNet2D(in_channels: int, out_channels: int = 1,
                     features=(32, 64, 128, 256, 512),
-                    deep_supervision: bool = False, dropout: float = 0.0):
-    """Costruisce la Attention U-Net 2D. Fase 3."""
-    raise NotImplementedError
+                    deep_supervision: bool = False, dropout: float = 0.0) -> UNet2D:
+    """Costruisce la Attention U-Net 2D."""
+    return UNet2D(in_channels=in_channels, out_channels=out_channels, features=features,
+                  attention=True, deep_supervision=deep_supervision, dropout=dropout)

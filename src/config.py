@@ -13,14 +13,27 @@ import os
 from omegaconf import OmegaConf
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-BASE_CONFIG = os.path.normpath(os.path.join(_HERE, "..", "configs", "base.yaml"))
+CONFIG_DIR = os.path.normpath(os.path.join(_HERE, "..", "configs"))
+BASE_CONFIG = os.path.join(CONFIG_DIR, "base.yaml")
+# Config locale (path della macchina): NON versionata, sovrascrive base + esperimento.
+LOCAL_CONFIG = os.environ.get("MSLESSEG_LOCAL_CONFIG",
+                              os.path.join(CONFIG_DIR, "local.yaml"))
 
 
 def load_config(exp_config: str | None = None, overrides: list[str] | None = None):
-    """Carica base.yaml, applica l'esperimento e gli override, poi finalizza."""
+    """Carica la configurazione con questa precedenza (dal più debole al più forte):
+
+        configs/base.yaml  ->  config d'esperimento  ->  configs/local.yaml  ->  override CLI
+
+    `configs/local.yaml` contiene i path (e le impostazioni hardware) specifici della
+    macchina ed è in .gitignore: così aggiornare i file del repo non sovrascrive mai la
+    tua configurazione locale, e lo stesso codice gira su PC e su Colab senza modifiche.
+    """
     cfg = OmegaConf.load(BASE_CONFIG)
     if exp_config and os.path.abspath(exp_config) != BASE_CONFIG:
         cfg = OmegaConf.merge(cfg, OmegaConf.load(exp_config))
+    if os.path.exists(LOCAL_CONFIG):
+        cfg = OmegaConf.merge(cfg, OmegaConf.load(LOCAL_CONFIG))
     if overrides:
         cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist(list(overrides)))
     _finalize(cfg)

@@ -6,9 +6,11 @@ project:
   output_dir: ./runs/base       # dove salvare checkpoint / log / risultati
 
 paths:
-  data_root: "C:/Users/massi/Desktop/MSLesSeg Dataset"
-  processed_root: "C:/Users/massi/Desktop/MSLesSeg_Processed"
-  metadata_csv: "C:/Users/massi/Desktop/MSLesSeg Dataset/info_dataset/clinical_data.csv"            # CSV con sesso/età/field_strength per paziente (Fase 1)
+  # NON modificare qui: crea `configs/local.yaml` (vedi local.yaml.example).
+  # Quel file non è versionato e sovrascrive questi valori sulla tua macchina.
+  data_root: /content/drive/MyDrive/MSLesSeg            # root MSLesSeg (con train/ test/)
+  processed_root: /content/drive/MyDrive/MSLesSeg_proc  # volumi normalizzati (.npy)
+  metadata_csv: null            # CSV con sesso/età/field_strength per paziente (Fase 1)
 
 data:
   modalities: [FLAIR, T1, T2]   # il sottoinsieme guida l'ablation multimodale (es. [FLAIR])
@@ -16,9 +18,15 @@ data:
   plane: axial
   spatial_size: [192, 192]      # dimensione in-plane dopo crop/pad
   pos_neg_ratio: 0.5            # frazione target di slice con lesione per epoca (train)
-  min_brain_fraction: 0.02      # scarta slice quasi vuote
+  min_brain_fraction: 0.02      # scarta slice quasi vuote (fuori dal cervello)
+  min_lesion_voxels: 1          # voxel minimi per considerare una slice "positiva"
+  normalization: zscore_nonzero # zscore_nonzero | minmax_nonzero (solo voxel cervello)
+  clip_percentiles: [0.5, 99.5] # clipping robusto degli outlier (null per disattivare)
+  crop_to_brain: true           # ritaglia le slice fuori dal cervello (meno disco)
+  z_margin: 2                   # slice di margine attorno al cervello
+  store_dtype: float16          # dtype su disco (float16 dimezza lo spazio)
   # Parsing filename: {paziente}_{timepoint}_{modalità}.nii.gz  (VERIFICARE con 00_inspect)
-  filename_pattern: '(?P<patient>[^_/]+)_(?P<timepoint>[^_/]+)_(?P<modality>[^_/.]+)'
+  filename_pattern: '^(?P<patient>[^_/]+)_(?:(?P<timepoint>[^_/]+)_)?(?P<modality>[^_/.]+)$'
   modality_aliases:
     FLAIR: [FLAIR, flair]
     T1: [T1, t1]
@@ -58,7 +66,7 @@ train:
   weight_decay: 0.00001
   scheduler: cosine             # cosine | plateau | none
   amp: true                     # mixed precision (T4)
-  num_workers: 2
+  num_workers: 0                # 0 = sicuro su Windows/notebook; su Colab/Linux usa 2-4
   val_interval: 1
   early_stopping_patience: 20
   grad_clip: null

@@ -1,0 +1,17 @@
+# Copia questo file in `configs/local.yaml` e adatta i path alla tua macchina.
+# `configs/local.yaml` è in .gitignore: non finisce su GitHub e non viene mai
+# sovrascritto quando aggiorni gli altri file del repo.
+
+paths:
+  # Windows
+  data_root: "C:/Users/<utente>/Desktop/MSLesSeg Dataset"
+  processed_root: "C:/Users/<utente>/Desktop/MSLesSeg_Processed"
+  metadata_csv: "C:/Users/<utente>/Desktop/MSLesSeg Dataset/info_dataset/clinical_data.csv"
+
+  # Colab (esempio)
+  # data_root: /content/drive/MyDrive/MSLesSeg
+  # processed_root: /content/drive/MyDrive/MSLesSeg_proc
+  # metadata_csv: /content/drive/MyDrive/MSLesSeg/info_dataset/clinical_data.csv
+
+train:
+  num_workers: 0        # Windows: 0; Colab/Linux: 2-4

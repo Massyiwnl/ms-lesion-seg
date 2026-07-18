@@ -40,6 +40,17 @@ pip install -r requirements.txt
 ```
 
 ## Sistema di configurazione
+
+**Prima cosa da fare su una macchina nuova**: copia `configs/local.yaml.example` in
+`configs/local.yaml` e metti i tuoi path. Quel file è in `.gitignore`, quindi non
+finisce su GitHub e **non viene mai sovrascritto** quando aggiorni gli altri file.
+
+Precedenza (dal più debole al più forte):
+```
+configs/base.yaml  ->  config d'esperimento  ->  configs/local.yaml  ->  --override da CLI
+```
+Così lo stesso comando gira identico su PC e su Colab: cambia solo `local.yaml`.
+
 Ogni esperimento è un piccolo file YAML che sovrascrive `configs/base.yaml`:
 ```
 python scripts/02_train.py --config configs/exp_attunet_multimodal_ds.yaml \
@@ -61,17 +72,21 @@ python scripts/02_train.py --config configs/exp_attunet_multimodal_ds.yaml \
 - [ ] Reperire/creare `metadata.csv` (sesso, età, field strength per paziente)
 - [ ] EDA: sbilanciamento di classe, lesion-load, visualizzazione MPR
 
-### Fase 2 — Preprocessing & Dataset 2.5D
-- [ ] `01_preprocess.py`: normalizzazione intensità per-modalità -> volumi .npy (memmap)
-- [ ] Indice slice + filtro brain + oversampling slice con lesione
-- [ ] `data/dataset.py`: Dataset 2.5D (canali = modalità × slice adiacenti)
-- [ ] `data/transforms.py`: pipeline augmentation train/val (pattern append/extend)
-- [ ] Sanity check: visualizzare un batch, verificare allineamento immagine/maschera
+### Fase 2 — Preprocessing & Dataset 2.5D  [FATTO]
+- [x] `01_preprocess.py`: normalizzazione intensità per-modalità -> volumi .npy (memmap)
+- [x] Indice slice + filtro brain + oversampling slice con lesione
+- [x] `data/dataset.py`: Dataset 2.5D (canali = modalità × slice adiacenti)
+- [x] `data/transforms.py`: pipeline augmentation train/val (pattern append/extend)
+- [x] Sanity check: visualizzare un batch, verificare allineamento immagine/maschera
 
-### Fase 3 — Modelli
-- [ ] `models/unet.py`: U-Net baseline parametrica (in_channels configurabile)
-- [ ] `models/attention_unet.py`: Attention U-Net + deep supervision
-- [ ] `models/build.py`: factory da config (+ hook opzionale MONAI DynUNet/SwinUNETR)
+### Fase 3 — Modelli  [FATTO]
+- [x] `models/unet.py`: U-Net baseline parametrica (in_channels configurabile)
+- [x] `models/attention_unet.py`: Attention U-Net + deep supervision
+- [x] `models/build.py`: factory da config (+ hook opzionale MONAI DynUNet/SwinUNETR)
+
+**Statistiche del dataset (train, 93 casi):** 15 044 slice utili, 6 782 con lesione
+(45.1%); a livello di pixel la lesione è lo **0.204%** (sfondo:lesione = 490:1).
+Carico lesionale per caso: mediana 6 217 mm3, min 744, max 72 872 (98x).
 
 ### Fase 4 — Loss, metriche, engine
 - [ ] `losses.py`: Dice / Dice+Focal / Tversky + wrapper deep supervision

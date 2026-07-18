@@ -35,7 +35,17 @@ def main():
     cases = attach_metadata(cases, cfg.paths.metadata_csv)
 
     if not cases:
-        print("[-] Nessun caso trovato. Controlla `paths.data_root` e `data.filename_pattern`.")
+        from src.data.indexing import list_nifti_files
+        files = list_nifti_files(root)
+        print("[-] Nessun caso riconosciuto.")
+        if not files:
+            print(f"    Nessun file .nii/.nii.gz sotto {root}: controlla `paths.data_root`.")
+        else:
+            print(f"    Trovati {len(files)} file NIfTI, ma i nomi non combaciano col parser.")
+            print("    Esempi di percorsi (relativi):")
+            for f in files[:20]:
+                print("      ", os.path.relpath(f, root))
+            print("\n    Incolla questo elenco per far adattare `data.filename_pattern`.")
         return
 
     patients = sorted({c["patient"] for c in cases})
