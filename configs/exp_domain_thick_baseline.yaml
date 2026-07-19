@@ -1,0 +1,10 @@
+# F6-A — Robustezza al protocollo: training SOLO su acquisizioni a slice spesse (>=3mm).
+# Base: U-Net + deep supervision, la configurazione risultata migliore nell'ablation
+# (test Dice 0.687, l'unico miglioramento significativo).
+# In valutazione si confronta il Dice sui test 'thick' (in dominio, 10 casi) con
+# quello sui test 'thin' (fuori dominio, 12 casi): il divario misura il domain shift.
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: true }
+loss: { name: dice }
+domain: { split_by: thickness_band, train_domain: thick, test_domain: thin }
+project: { output_dir: ./runs/domain_thick_base }

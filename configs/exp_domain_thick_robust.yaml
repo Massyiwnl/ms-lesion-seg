@@ -1,0 +1,14 @@
+# F6-B — Identico a F6-A, ma con le contromisure di robustezza:
+#   bias-field augmentation  simula la disomogeneità di campo di scanner diversi
+#   regolarizzazione Jacobiano  vincolo tipo Lipschitz: limita quanto l'uscita può
+#                               cambiare a fronte di piccole perturbazioni dell'input
+# Il confronto F6-A vs F6-B misura quanto si recupera FUORI dominio.
+# ATTENZIONE: con jacobian=true l'AMP viene disattivata (serve un doppio backward),
+# quindi questo run è ~3 volte più lento. Usare lo STESSO budget di epoche di F6-A.
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: true }
+loss: { name: dice }
+domain: { split_by: thickness_band, train_domain: thick, test_domain: thin }
+regularization: { jacobian: true, jacobian_lambda: 0.01, jacobian_n_proj: 1 }
+augment: { bias_field_prob: 0.3, rand_gaussian_noise_prob: 0.2 }
+project: { output_dir: ./runs/domain_thick_robust }

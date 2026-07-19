@@ -1,0 +1,5 @@
+# E5 — U-Net, FLAIR, Tversky (alpha<beta: penalizza le lesioni MANCATE).
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: false }
+loss: { name: tversky, tversky_alpha: 0.3, tversky_beta: 0.7 }
+project: { output_dir: ./runs/unet_flair_tversky }

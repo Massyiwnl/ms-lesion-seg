@@ -1,0 +1,5 @@
+# E2 — Attention U-Net, FLAIR, Dice. Isola l'effetto degli Attention Gate.
+data: { modalities: [FLAIR] }
+model: { arch: attention_unet, deep_supervision: false }
+loss: { name: dice }
+project: { output_dir: ./runs/attunet_flair }

@@ -88,29 +88,84 @@ python scripts/02_train.py --config configs/exp_attunet_multimodal_ds.yaml \
 (45.1%); a livello di pixel la lesione è lo **0.204%** (sfondo:lesione = 490:1).
 Carico lesionale per caso: mediana 6 217 mm3, min 744, max 72 872 (98x).
 
-### Fase 4 — Loss, metriche, engine
-- [ ] `losses.py`: Dice / Dice+Focal / Tversky + wrapper deep supervision
-- [ ] `metrics.py`: Dice, IoU, HD95, ASSD, lesion-wise TPR/FPR
-- [ ] `regularization.py`: Jacobian (stima di Hutchinson)
-- [ ] `engine.py`: loop con AMP, scheduler, early stopping, checkpoint, logging CSV
-- [ ] `02_train.py`: entry-point di training
+### Fase 4 — Loss, metriche, engine  [FATTO]
+- [x] `losses.py`: Dice / Dice+Focal / Tversky + wrapper deep supervision
+- [x] `metrics.py`: Dice, IoU, HD95, ASSD, lesion-wise TPR/FPR
+- [x] `regularization.py`: Jacobian (stima di Hutchinson)
+- [x] `engine.py`: loop con AMP, scheduler, early stopping, checkpoint, logging CSV
+- [x] `02_train.py`: entry-point di training
 
-### Fase 5 — Esperimenti core
-- [ ] Baseline U-Net (FLAIR) -> risultato di riferimento
+Il Dice di validazione è calcolato **per volume** (TP/FP/FN accumulati per caso), non
+mediando i Dice delle singole slice: è la metrica usata dai benchmark e non è gonfiata
+dalle slice facili.
+
+### Nota tecnica — collasso della Dice loss (risolto)
+Al primo training la baseline è collassata all'epoca 9: recall a 0, nessuna lesione
+predetta, train loss ferma a 0.50. Causa: con `batch=False` (default MONAI) il Dice è
+mediato per slice e una slice vuota predetta vuota vale loss 0; con `pos_neg_ratio=0.5`
+predire "tutto sfondo" garantisce 0.50, meglio dello 0.72 di un modello che sta
+imparando. L'AMP amplifica il problema: in float16 la sigmoide di logit < -20 va in
+underflow a zero esatto, rendendo la ricompensa perfetta. Fix: `loss.batch_dice: true`
+e loss calcolata sempre in float32 (`_to_fp32` in engine.py). Aggiunto anche un
+rilevatore che avvisa se la recall resta a 0 per due validazioni.
+
+### Fase 5 — Esperimenti core  [strumenti pronti]
+- [x] `03_evaluate.py`: valutazione per volume su test (Dice/IoU/HD95/ASSD/lesion-wise)
+- [x] `04_compare.py`: tabella comparativa + Wilcoxon appaiato vs baseline
+**Baseline completata (E0)**: U-Net, FLAIR, Dice -> val 0.7919 (epoca 46),
+**test 0.6696 ± 0.1083** su 22 pazienti. In linea con le baseline 3D pubblicate
+(UNETR 0.642, MSSegDiff 0.685). Lesion-wise TPR 0.771 (665/863 lesioni trovate),
+mediana 10 falsi positivi per paziente. Il Dice correla col carico lesionale
+(Pearson su log-volume r=+0.50, p=0.018): 0.622 sui pazienti con poche lesioni contro
+0.717 su quelli con molte.
+
+Piano ablation (una variabile alla volta rispetto a E0, stesso seed e stesso split):
+| ID | Config | Variabile isolata |
+|---|---|---|
+| E0 | `exp_unet_flair.yaml` | baseline |
+| E1 | `exp_unet_multimodal.yaml` | modalità: +T1+T2 |
+| E2 | `exp_attunet_flair.yaml` | architettura: attention gate |
+| E3 | `exp_unet_flair_ds.yaml` | deep supervision |
+| E4 | `exp_unet_flair_focal.yaml` | loss: Dice+Focal |
+| E5 | `exp_unet_flair_tversky.yaml` | loss: Tversky |
+| E6 | `exp_best.yaml` | combinazione delle scelte vincenti |
+
+- [x] Baseline U-Net (FLAIR) -> risultato di riferimento
 - [ ] Ablation modalità: FLAIR vs FLAIR+T1+T2
 - [ ] Ablation architettura: U-Net vs Attention U-Net (+deep supervision)
 - [ ] Ablation loss: Dice vs Dice+Focal/Tversky
-- [ ] Tabella riassuntiva dei risultati (Dice/IoU/HD95/lesion-wise)
+- [ ] Tabella riassuntiva dei risultati
+
+Con 22 pazienti di test una differenza di Dice di pochi punti può essere rumore: per
+questo il confronto include un **test di Wilcoxon appaiato** sui Dice per caso.
 
 ### Fase 6 — Robustezza al dominio + regolarizzazione
-- [ ] Split per field strength; train 3T / test 1.5T (e viceversa) -> misurare il calo
-- [ ] Attivare bias-field augmentation e Jacobian -> misurare il recupero
-- [ ] `03_evaluate.py`: valutazione cross-dominio
+**Il dataset NON riporta il field strength.** `patient_scanners_info_*.csv` contiene
+produttore, modello e parametri di sequenza, ma non il tag DICOM MagneticFieldStrength;
+dedurre 1.5T/3T dal modello non è affidabile (Achieva, Ingenia, Signa HDxt esistono in
+entrambe le versioni). L'asse di dominio è quindi ridefinito su basi verificabili:
+
+- **Primario — spessore di slice** (protocollo di acquisizione): thin <=2.5mm vs
+  thick >=3mm. Train su thick: 57 casi / 30 pazienti. Test: 10 casi in-dominio (thick)
+  contro 12 fuori dominio (thin) — due lati ben bilanciati.
+- **Secondario — produttore**: il training è quasi tutto Philips (84/93); il test ha
+  16 Philips e 6 non-Philips (5 GE + 1 Siemens). Valutazione stratificata, senza
+  training aggiuntivo.
+
+- [x] Metadati di acquisizione agganciati (`attach_scanner_metadata`)
+- [x] `01b_refresh_metadata.py`: aggiorna i meta senza rifare il preprocessing
+- [x] Filtro di dominio nel training (`domain.split_by` / `train_domain`)
+- [ ] F6-A: train su thick -> misurare il calo su thin
+- [ ] F6-B: stesso training + bias-field aug + Jacobian -> misurare il recupero
 
 ### Fase 7 — Analisi
-- [ ] `04_fairness.py`: metriche per sottogruppo (sesso, età, scanner)
-- [ ] `05_explain.py`: Grad-CAM + mappe di attenzione; error analysis (FP/FN, lesioni piccole)
-- [ ] Figure qualitative (overlay predizione/GT)
+- [x] Metriche per sottogruppo (sesso, età, vendor, spessore) -> `results_by_subgroup.csv`
+- [x] `05_visualize.py` + `src/visualize.py`: pacchetto di figure per il report
+      (curve di apprendimento, overlay TP/FN/FP, zoom sulle lesioni per dimensione,
+      distribuzione del Dice, rilevamento per dimensione della lesione)
+- [x] Sezione 8 del notebook: esplorazione interattiva con slider sulle slice
+- [ ] Grad-CAM + mappe di attenzione (richiede il modello Attention U-Net)
+- [ ] Error analysis scritta nel report
 
 ### Fase 8 — Estensioni (opzionali)
 - [ ] SwinUNETR / UNETR (confronto Transformer)

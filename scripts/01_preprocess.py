@@ -13,15 +13,17 @@ import os
 import sys
 import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
 from src.config import load_config
-from src.data.indexing import discover_cases, attach_metadata
+from src.data.indexing import discover_cases, attach_metadata, attach_scanner_metadata
 from src.data.preprocessing import process_case
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="configs/base.yaml")
+    ap.add_argument("--config",
+                default=os.path.join(REPO_ROOT, "configs", "base.yaml"))
     ap.add_argument("--split", default="train", help="train | test")
     ap.add_argument("--limit", type=int, default=None, help="processa solo N casi (test rapido)")
     ap.add_argument("--force", action="store_true", help="riprocessa anche i casi già presenti")
@@ -37,6 +39,7 @@ def main():
 
     cases = discover_cases(src_root, cfg.data.filename_pattern, cfg.data.modality_aliases)
     cases = attach_metadata(cases, cfg.paths.metadata_csv)
+    cases = attach_scanner_metadata(cases, cfg.paths.get('scanner_csv', None))
     cases.sort(key=lambda c: (c["patient"], c["timepoint"]))
     if args.limit:
         cases = cases[: args.limit]
@@ -67,6 +70,20 @@ def main():
         pos = int((__import__("numpy").array(meta["lesion_voxels"]) > 0).sum())
         print(f"  [{i}/{len(cases)}] {name}: {meta['n_slices']} slice "
               f"({pos} con lesione) | lesione tot={meta['lesion_total']} voxel")
+
+    # L'indice elenca TUTTI i casi presenti sul disco, non solo quelli processati ora:
+    # altrimenti un run con --limit (o interrotto a metà) troncherebbe l'indice e il
+    # training leggerebbe un dataset incompleto senza accorgersene.
+    all_metas = []
+    for d in sorted(os.listdir(out_root)):
+        mp = os.path.join(out_root, d, "meta.json")
+        if os.path.isfile(mp):
+            with open(mp) as f:
+                all_metas.append(json.load(f))
+    if len(all_metas) > len(metas):
+        print(f"\n[i] Indice ricostruito da disco: {len(all_metas)} casi totali "
+              f"({len(metas)} toccati in questo run).")
+    metas = all_metas
 
     index_path = os.path.join(cfg.paths.processed_root, f"index_{args.split}.json")
     with open(index_path, "w") as f:

@@ -1,0 +1,5 @@
+# E4 — U-Net, FLAIR, Dice+Focal. Isola l'effetto della loss sullo sbilanciamento.
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: false }
+loss: { name: dice_focal }
+project: { output_dir: ./runs/unet_flair_focal }

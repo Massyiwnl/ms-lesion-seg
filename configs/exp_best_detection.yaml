@@ -1,0 +1,12 @@
+# E6-bis — Variante orientata alla DETECTION invece che al Dice.
+#
+# Ipotesi da verificare: la Tversky (alpha<beta) ha dato il miglior TPR per-lesione
+# (0.827 vs 0.793) ma con più falsi positivi (14.1 vs 11.2); la deep supervision li
+# dimezza (11.2 -> 5.9). Combinandole, i due effetti dovrebbero compensarsi e dare
+# alta detection SENZA pagare in falsi positivi.
+# Serve a sostenere nel report che il "modello migliore" dipende dall'obiettivo
+# clinico: delineare il carico lesionale (Dice) o segnalare le lesioni nuove (TPR).
+data: { modalities: [FLAIR] }
+model: { arch: attention_unet, deep_supervision: true }
+loss: { name: tversky, tversky_alpha: 0.3, tversky_beta: 0.7 }
+project: { output_dir: ./runs/best_detection }

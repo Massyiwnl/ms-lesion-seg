@@ -13,7 +13,8 @@ import os
 from omegaconf import OmegaConf
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-CONFIG_DIR = os.path.normpath(os.path.join(_HERE, "..", "configs"))
+REPO_ROOT = os.path.normpath(os.path.join(_HERE, ".."))
+CONFIG_DIR = os.path.join(REPO_ROOT, "configs")
 BASE_CONFIG = os.path.join(CONFIG_DIR, "base.yaml")
 # Config locale (path della macchina): NON versionata, sovrascrive base + esperimento.
 LOCAL_CONFIG = os.environ.get("MSLESSEG_LOCAL_CONFIG",
@@ -47,7 +48,13 @@ def _finalize(cfg) -> None:
         n_mod = len(cfg.data.modalities)
         ctx = 2 * int(cfg.data.context_slices) + 1
         cfg.model.in_channels = n_mod * ctx
-    os.makedirs(cfg.project.output_dir, exist_ok=True)
+    # output_dir relativo -> ancorato alla root del repo (non alla cartella corrente),
+    # così i risultati finiscono sempre in <repo>/runs/... da qualunque punto si lanci
+    out = str(cfg.project.output_dir)
+    if not os.path.isabs(out):
+        out = os.path.normpath(os.path.join(REPO_ROOT, out))
+        cfg.project.output_dir = out
+    os.makedirs(out, exist_ok=True)
 
 
 def save_config(cfg, path: str) -> None:

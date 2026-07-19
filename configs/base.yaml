@@ -10,7 +10,8 @@ paths:
   # Quel file non è versionato e sovrascrive questi valori sulla tua macchina.
   data_root: /content/drive/MyDrive/MSLesSeg            # root MSLesSeg (con train/ test/)
   processed_root: /content/drive/MyDrive/MSLesSeg_proc  # volumi normalizzati (.npy)
-  metadata_csv: null            # CSV con sesso/età/field_strength per paziente (Fase 1)
+  metadata_csv: null            # info_dataset/clinical_data.csv (sesso, età, EDSS)
+  scanner_csv: null             # info_dataset/patient_scanners_info/..._FLAIR.csv
 
 data:
   modalities: [FLAIR, T1, T2]   # il sottoinsieme guida l'ablation multimodale (es. [FLAIR])
@@ -25,6 +26,8 @@ data:
   crop_to_brain: true           # ritaglia le slice fuori dal cervello (meno disco)
   z_margin: 2                   # slice di margine attorno al cervello
   store_dtype: float16          # dtype su disco (float16 dimezza lo spazio)
+  samples_per_epoch: null       # slice estratte per epoca (null = tutte). Abbassalo
+                                # (es. 6000) per epoche più brevi e validazioni frequenti
   # Parsing filename: {paziente}_{timepoint}_{modalità}.nii.gz  (VERIFICARE con 00_inspect)
   filename_pattern: '^(?P<patient>[^_/]+)_(?:(?P<timepoint>[^_/]+)_)?(?P<modality>[^_/.]+)$'
   modality_aliases:
@@ -33,10 +36,12 @@ data:
     T2: [T2, t2]
     mask: [MASK, mask, seg, gt, lesion, consensus]
 
-domain:                         # esperimento robustezza cross-scanner (Fase 6)
-  split_by: null                # es. 'field_strength'; null = split standard per paziente
-  train_domain: null            # es. '3T'
-  test_domain: null             # es. '1.5T'
+domain:                         # esperimento robustezza cross-protocollo (Fase 6)
+  # Il dataset NON riporta il field strength: l'asse di dominio è lo spessore di slice
+  # (thin <=2.5mm / thick >=3mm), asse secondario il produttore (vendor).
+  split_by: null                # es. 'thickness_band' o 'vendor'; null = split standard
+  train_domain: null            # es. 'thick'
+  test_domain: null             # es. 'thin'
 
 model:
   arch: unet                    # unet | attention_unet | dynunet | swin_unetr (stretch)
@@ -47,7 +52,9 @@ model:
   dropout: 0.0
 
 loss:
-  name: dice                    # dice | dice_focal | tversky
+  name: dice                    # dice | dice_focal | dice_ce | tversky
+  batch_dice: true              # Dice sul batch aggregato: evita il collasso a
+                                # predizione vuota (vedi docstring di losses.py)
   sigmoid: true
   tversky_alpha: 0.3            # peso FP; alpha<beta penalizza di più i falsi negativi
   tversky_beta: 0.7
@@ -88,8 +95,10 @@ eval:
   hd95: true
   assd: true
   lesion_wise: true
-  min_lesion_size: 3            # voxel; ignora componenti minuscole (rumore)
-  subgroups: [sex, age_band, field_strength]
+  min_lesion_size: 3            # voxel; soglia per le metriche lesion-wise
+  postproc_min_size: 0          # >0: elimina dalle predizioni le componenti più
+                                # piccole di N voxel (post-processing, da ablare)
+  subgroups: [sex, age_band, vendor, thickness_band, scanner_model]
   save_predictions: true
 
 explain:

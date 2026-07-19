@@ -1,0 +1,18 @@
+# E6 — Combinazione finale: Attention U-Net + deep supervision, FLAIR, Dice.
+#
+# Evidenze dall'ablation completa (test set, 22 pazienti, Wilcoxon appaiato vs baseline):
+#   deep supervision  +0.0172 Dice, p=0.023  -> UNICO effetto significativo.
+#                     HD95 23.1->18.0 mm, falsi positivi/paziente 11.2->5.9.
+#                     Migliora 14/22 pazienti, caso peggiore solo -0.017: affidabile.
+#   attention gate    -0.005 Dice (ns) ma riduce i FP (11.2->8.9) e alza la F1
+#                     per-lesione (0.680->0.706): agisce sullo stesso asse della DS,
+#                     quindi si testa la combinazione.
+#   multimodale       -0.006 Dice (ns). Migliora 14/22 pazienti (mediana +0.007) ma
+#                     su alcuni crolla (P71 -0.143, P59 -0.131): sd 0.111 -> 0.139.
+#                     ESCLUSA dal modello finale per il rischio di coda.
+#   loss              Dice resta la migliore per il Dice; focal e tversky alzano il
+#                     TPR per-lesione ma peggiorano precisione e falsi positivi.
+data: { modalities: [FLAIR] }
+model: { arch: attention_unet, deep_supervision: true }
+loss: { name: dice }
+project: { output_dir: ./runs/best_combo }

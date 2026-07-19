@@ -11,14 +11,16 @@ classe della maschera, e distribuzione dei sottogruppi (se c'è metadata_csv).
 import argparse, os, sys
 from collections import Counter
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
 from src.config import load_config
-from src.data.indexing import discover_cases, attach_metadata
+from src.data.indexing import discover_cases, attach_metadata, attach_scanner_metadata
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="configs/base.yaml")
+    ap.add_argument("--config",
+                default=os.path.join(REPO_ROOT, "configs", "base.yaml"))
     ap.add_argument("--split", default="train", help="train | test | '' (nessuna sottocartella)")
     ap.add_argument("--override", nargs="*", default=[])
     args = ap.parse_args()
@@ -89,9 +91,10 @@ def main():
               f"(-> forte sbilanciamento di classe)")
 
     # Sottogruppi
+    cases = attach_scanner_metadata(cases, cfg.paths.get("scanner_csv", None))
     if cfg.paths.metadata_csv and any("sex" in c for c in cases):
         print("\n--- Sottogruppi (da metadata) ---")
-        for key in ("sex", "age_band", "field_strength"):
+        for key in ("sex", "age_band", "vendor", "thickness_band"):
             cc = Counter(str(c.get(key, "NA")) for c in cases)
             print(f"  {key}: {dict(cc)}")
     else:

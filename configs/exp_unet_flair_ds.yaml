@@ -1,0 +1,5 @@
+# E3 — U-Net + deep supervision, FLAIR, Dice. Isola l'effetto della deep supervision.
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: true }
+loss: { name: dice }
+project: { output_dir: ./runs/unet_flair_ds }
