@@ -1,0 +1,15 @@
+# F6-C — Correzione dell'esperimento sul Jacobiano.
+#
+# Diagnosi di F6-B: con jacobian_lambda=0.01 il termine di penalità valeva
+# 0.01 x 0.29 ~ 0.003 contro una loss di 0.21, cioe' l'1.4%: troppo debole per
+# influenzare l'ottimizzazione. Infatti la norma stimata del Jacobiano CRESCE
+# durante il training (0.09 -> 0.29) invece di calare.
+# Qui il peso è alzato di 50 volte e le augmentation extra sono DISATTIVATE, così
+# l'effetto misurato è quello del solo Jacobiano.
+data: { modalities: [FLAIR] }
+model: { arch: unet, deep_supervision: true }
+loss: { name: dice }
+domain: { split_by: thickness_band, train_domain: thick, test_domain: thin }
+regularization: { jacobian: true, jacobian_lambda: 0.5, jacobian_n_proj: 1 }
+augment: { bias_field_prob: 0.0, rand_gaussian_noise_prob: 0.0 }
+project: { output_dir: ./runs/domain_thick_jac_strong }

@@ -164,8 +164,29 @@ entrambe le versioni). L'asse di dominio è quindi ridefinito su basi verificabi
       (curve di apprendimento, overlay TP/FN/FP, zoom sulle lesioni per dimensione,
       distribuzione del Dice, rilevamento per dimensione della lesione)
 - [x] Sezione 8 del notebook: esplorazione interattiva con slider sulle slice
-- [ ] Grad-CAM + mappe di attenzione (richiede il modello Attention U-Net)
+- [x] `07_explain.py` + `src/explain/gradcam.py`: Grad-CAM adattata alla segmentazione
+      (bersaglio = somma dei logit sui pixel predetti), mappe delle attention gate,
+      metrica di **selettività** (rilevanza lesione / tessuto sano) e rilevamento delle
+      mappe degeneri: se dopo la ReLU la mappa è nulla lo strato non dà contributi
+      positivi, quindi viene esclusa invece che normalizzata (dividere per ~0
+      produrrebbe rumore dall'aspetto significativo)
+- [x] `06_domain_analysis.py`: divario in-dominio / fuori dominio + test appaiati
 - [ ] Error analysis scritta nel report
+
+**Risultati Fase 6 (robustezza).** Il divario misurato non è domain shift ma difficoltà
+intrinseca: anche il modello addestrato su TUTTI i dati va meglio sulle slice sottili
+(0.712 vs 0.657). Sweep del peso della regolarizzazione Jacobiana:
+
+| lambda | Dice | TPR per-lesione | FP/paz | divario |
+|---|---|---|---|---|
+| 0 | 0.642 | 0.707 | 8.64 | -0.077 |
+| 0.01 | 0.625 | - | - | -0.049 |
+| 0.5 | 0.527 | 0.357 | 3.27 | +0.009 |
+
+Con lambda=0.5 il divario si azzera ma il modello perde metà delle lesioni (21/22
+pazienti peggiorati, p<1e-5). La chiusura del divario è spiegata esattamente dal danno
+differenziale: fuori dominio -0.154, in dominio -0.068, differenza 0.086 = variazione
+del divario. **Un divario che si restringe non implica robustezza.**
 
 ### Fase 8 — Estensioni (opzionali)
 - [ ] SwinUNETR / UNETR (confronto Transformer)

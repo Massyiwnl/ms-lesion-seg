@@ -233,6 +233,143 @@ def plot_detection_by_size(size_detected: list[tuple], save_dir: str | None = No
     return fig
 
 
+# ------------------------------------------------------------------ explainability
+def plot_gradcam(image_sl, gt_sl, pred_sl, cam, case_name: str = "", z: int = 0,
+                 layer: str = "", save_dir: str | None = None):
+    """FLAIR, overlay TP/FN/FP e mappa Grad-CAM sovrapposta all'anatomia."""
+    fig, ax = plt.subplots(1, 3, figsize=(13, 4.4))
+    ax[0].imshow(_to_display(image_sl), cmap="gray")
+    ax[0].set_title(f"FLAIR (z={z})")
+    ax[1].imshow(overlay_rgb(image_sl, gt_sl, pred_sl))
+    ax[1].set_title("segmentazione (verde TP, rosso FN, blu FP)")
+    ax[2].imshow(_to_display(image_sl), cmap="gray")
+    im = ax[2].imshow(np.rot90(cam), cmap="jet", alpha=0.5, vmin=0, vmax=1)
+    ax[2].set_title(f"Grad-CAM{' — ' + layer if layer else ''}")
+    fig.colorbar(im, ax=ax[2], fraction=0.046, label="importanza")
+    for a in ax:
+        a.axis("off")
+    fig.suptitle(f"Spiegazione della predizione — {case_name}", fontsize=12)
+    fig.tight_layout()
+    if save_dir:
+        _savefig(fig, save_dir, f"gradcam_{case_name}_z{z}.png")
+    return fig
+
+
+def plot_attention(image_sl, maps, gt_sl=None, case_name: str = "", z: int = 0,
+                   save_dir: str | None = None):
+    """Coefficienti delle attention gate ai vari livelli del decoder."""
+    if not maps:
+        return None
+    n = len(maps)
+    fig, ax = plt.subplots(1, n + 1, figsize=(3.6 * (n + 1), 4))
+    ax[0].imshow(_to_display(image_sl), cmap="gray")
+    if gt_sl is not None:
+        m = np.rot90(np.asarray(gt_sl) > 0)
+        ax[0].imshow(np.ma.masked_where(~m, m), cmap="autumn", alpha=0.9)
+    ax[0].set_title("FLAIR + ground truth")
+    ax[0].axis("off")
+    for i, a in enumerate(maps):
+        ax[i + 1].imshow(np.rot90(a), cmap="viridis", vmin=0, vmax=1)
+        ax[i + 1].set_title(f"attention {a.shape[0]}x{a.shape[1]}")
+        ax[i + 1].axis("off")
+    fig.suptitle(f"Attention gate, dal livello grossolano al fine — {case_name} (z={z})",
+                 fontsize=12)
+    fig.tight_layout()
+    if save_dir:
+        _savefig(fig, save_dir, f"attention_{case_name}_z{z}.png")
+    return fig
+
+
+def plot_false_positives(image_vol, gt_vol, pred_vol, regions, case_name: str = "",
+                         margin: int = 16, save_dir: str | None = None):
+    """Zoom sui falsi positivi più grandi: mostra COSA il modello scambia per lesione."""
+    if not regions:
+        return None
+    cols = min(len(regions), 3)
+    rows = int(np.ceil(len(regions) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), squeeze=False)
+    gt = np.asarray(gt_vol) > 0
+    pred = np.asarray(pred_vol) > 0
+    for k, r in enumerate(regions):
+        z, h, w = r["centre"]
+        h0, h1 = max(0, h - margin), min(gt.shape[1], h + margin)
+        w0, w1 = max(0, w - margin), min(gt.shape[2], w + margin)
+        a = axes[k // cols][k % cols]
+        a.imshow(overlay_rgb(image_vol[z][h0:h1, w0:w1], gt[z][h0:h1, w0:w1],
+                             pred[z][h0:h1, w0:w1], alpha=0.45), interpolation="nearest")
+        a.set_title(f"{r['size']} voxel — falso positivo", fontsize=10, color="darkblue")
+        a.axis("off")
+    for k in range(len(regions), rows * cols):
+        axes[k // cols][k % cols].axis("off")
+    fig.suptitle(f"Cosa viene scambiato per lesione — {case_name}", fontsize=12)
+    fig.tight_layout()
+    if save_dir:
+        _savefig(fig, save_dir, f"false_positives_{case_name}.png")
+    return fig
+
+
+# ------------------------------------------------------------------ explainability
+def plot_explanation(image_sl, gt_sl, pred_sl, cams: dict, case_name: str = "",
+                     z: int | None = None, save_dir: str | None = None):
+    """Confronto: immagine, overlay TP/FN/FP e mappe di rilevanza sovrapposte.
+
+    `cams` è un dizionario {etichetta: mappa 2D in [0,1]} — può contenere Grad-CAM a
+    profondità diverse e/o mappe di attenzione. La lettura da fare è: la zona calda
+    coincide con la lesione? Se il modello "guarda" altrove ma azzecca comunque la
+    segmentazione, è un campanello d'allarme sulla generalizzazione.
+    """
+    n = 2 + len(cams)
+    fig, axes = plt.subplots(1, n, figsize=(3.6 * n, 4.0))
+    base = _to_display(image_sl)
+    axes[0].imshow(base, cmap="gray")
+    axes[0].set_title(f"FLAIR{f'  (z={z})' if z is not None else ''}", fontsize=10)
+    axes[1].imshow(overlay_rgb(image_sl, gt_sl, pred_sl))
+    axes[1].set_title("verde TP · rosso FN · blu FP", fontsize=10)
+    for k, (label, cam) in enumerate(cams.items()):
+        ax = axes[2 + k]
+        ax.imshow(base, cmap="gray")
+        im = ax.imshow(np.rot90(np.asarray(cam)), cmap="jet", alpha=0.45, vmin=0, vmax=1)
+        cnt = np.rot90(np.asarray(gt_sl) > 0)
+        if cnt.any():
+            ax.contour(cnt, levels=[0.5], colors="white", linewidths=1.0)
+        ax.set_title(label, fontsize=10)
+        if k == len(cams) - 1:
+            fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    for a in axes:
+        a.axis("off")
+    fig.suptitle(f"Explainability — {case_name}   (contorno bianco = ground truth)", fontsize=12)
+    fig.tight_layout()
+    if save_dir:
+        _savefig(fig, save_dir, f"explain_{case_name}.png")
+    return fig
+
+
+def plot_cam_alignment(scores: dict, save_dir: str | None = None):
+    """Quanto la rilevanza si concentra sulla lesione, per strato.
+
+    Per ogni mappa si confronta il valore medio DENTRO la lesione con quello nel
+    tessuto sano: un rapporto vicino a 1 significa che il modello non sta guardando
+    la lesione in modo selettivo.
+    """
+    labels = list(scores)
+    vals = [scores[k] for k in labels]
+    fig, ax = plt.subplots(figsize=(1.6 * len(labels) + 3, 4.2))
+    bars = ax.bar(range(len(vals)), vals, color="tab:orange", alpha=0.85)
+    ax.axhline(1.0, color="black", ls="--", lw=1, label="nessuna selettività")
+    for b, v in zip(bars, vals):
+        ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.03, f"{v:.2f}x",
+                ha="center", fontsize=9)
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, fontsize=9, rotation=15)
+    ax.set_ylabel("rilevanza lesione / tessuto sano")
+    ax.set_title("Selettività delle mappe di rilevanza")
+    ax.legend(frameon=False); ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    if save_dir:
+        _savefig(fig, save_dir, "cam_alignment.png")
+    return fig
+
+
 def _savefig(fig, out_dir: str, name: str):
     d = os.path.join(out_dir, "figures") if not out_dir.endswith("figures") else out_dir
     os.makedirs(d, exist_ok=True)
